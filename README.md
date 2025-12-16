@@ -20,6 +20,9 @@ A simple HTTP server for controlling Govee lights with authentication. 404 and 4
 - `POST /lights/rgb` - Set custom RGB color (JSON body: `{"r": 255, "g": 128, "b": 0}`)
 - `POST /lights/brightness` - Set brightness (JSON body: `{"brightness": 50}`)
 - `GET /lights/status` - Get status of all devices (returns deviceID, onOff, brightness, color)
+- `GET /health` - Health check endpoint (returns overall status, uptime, component checks)
+- `GET /ready` - Readiness probe (same as /health)
+- `GET /live` - Liveness probe (same as /health)
 
 All endpoints require a Bearer token in the Authorization header.
 
@@ -192,6 +195,26 @@ Example JSON log output:
 - Request IDs included in response headers (`X-Request-ID`)
 - All handler logs include request ID for correlation
 - Easy debugging of request flows
+
+### Health Endpoints
+- `GET /health` - Overall application health with component status
+- `GET /ready` - Kubernetes readiness probe
+- `GET /live` - Kubernetes liveness probe
+
+Example health response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2025-12-15T20:23:58Z",
+  "uptime": "3.6672225s",
+  "checks": {
+    "controller": {
+      "status": "ok",
+      "detail": "1 devices connected"
+    }
+  }
+}
+```
 
 ### Configuration
 Set the following environment variables for logging:

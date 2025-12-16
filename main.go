@@ -19,6 +19,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/jwhitcraft/lights-http/config"
 	"github.com/jwhitcraft/lights-http/controller"
@@ -70,9 +71,18 @@ func main() {
 		Logger:     logger,
 	}
 
+	healthHandler := &handlers.HealthHandler{
+		Controller: goveeController.Controller,
+		Logger:     logger,
+		StartTime:  time.Now(),
+	}
+
 	loggingMiddleware := &middleware.LoggingMiddleware{Logger: logger}
 
 	mux := http.NewServeMux()
+	mux.Handle("/health", loggingMiddleware.Middleware(http.HandlerFunc(healthHandler.Health)))
+	mux.Handle("/ready", loggingMiddleware.Middleware(http.HandlerFunc(healthHandler.Health)))
+	mux.Handle("/live", loggingMiddleware.Middleware(http.HandlerFunc(healthHandler.Health)))
 	mux.Handle("/lights/on", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.TurnOn))))
 	mux.Handle("/lights/off", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.TurnOff))))
 	mux.Handle("/lights/red", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Red))))
