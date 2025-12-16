@@ -1,0 +1,5 @@
+# Ignore environment files and other sensitive or generated files
+.env
+*.log
+bin/
+vendor/
