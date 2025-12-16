@@ -90,6 +90,7 @@ func main() {
 	mux.Handle("/lights/orange", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Orange))))
 	mux.Handle("/lights/dark-red", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.DarkRed))))
 	mux.Handle("/lights/rgb", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.RGB))))
+	mux.Handle("/lights/colortemp", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.ColorTemp))))
 	mux.Handle("/lights/brightness", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Brightness))))
 	mux.Handle("/lights/status", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Status))))
 

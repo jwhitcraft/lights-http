@@ -140,6 +140,46 @@ func (h *LightsHandler) RGB(w http.ResponseWriter, r *http.Request) {
 	h.SetColor(w, r, color, "rgb")
 }
 
+func (h *LightsHandler) ColorTemp(w http.ResponseWriter, r *http.Request) {
+	requestID := getRequestID(r.Context())
+	h.Logger.Info("Setting color temperature", "requestID", requestID)
+
+	var req struct {
+		Temperature int `json:"temperature"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.Logger.Error("Invalid JSON in color temperature request",
+			"requestID", requestID,
+			"error", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if req.Temperature < 2000 || req.Temperature > 9000 {
+		h.Logger.Warn("Invalid color temperature",
+			"requestID", requestID,
+			"temperature", req.Temperature)
+		http.Error(w, "Color temperature must be between 2000K and 9000K", http.StatusBadRequest)
+		return
+	}
+	colorTemp := govee.NewColorKelvin(uint(req.Temperature))
+	h.Logger.Info("Setting color temperature",
+		"requestID", requestID,
+		"temperature", fmt.Sprintf("%dK", req.Temperature))
+
+	h.forEachDevice(func(device *govee.Device) {
+		err := device.SetColorKelvin(colorTemp)
+		if err != nil {
+			h.Logger.Error("Failed to set color temperature",
+				"device", device.DeviceID(),
+				"requestID", requestID,
+				"temperature", req.Temperature,
+				"error", err)
+		}
+	})
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "color temperature set"})
+}
+
 func (h *LightsHandler) Brightness(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Brightness int `json:"brightness"`

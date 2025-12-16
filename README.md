@@ -18,6 +18,7 @@ A simple HTTP server for controlling Govee lights with authentication. 404 and 4
 - `POST /lights/orange` - Set lights to orange
 - `POST /lights/dark-red` - Set lights to dark red
 - `POST /lights/rgb` - Set custom RGB color (JSON body: `{"r": 255, "g": 128, "b": 0}`)
+- `POST /lights/colortemp` - Set color temperature in Kelvin (JSON body: `{"temperature": 3000}`)
 - `POST /lights/brightness` - Set brightness (JSON body: `{"brightness": 50}`)
 - `GET /lights/status` - Get status of all devices (returns deviceID, onOff, brightness, color)
 - `GET /health` - Health check endpoint (returns overall status, uptime, component checks)
@@ -60,6 +61,12 @@ curl -X POST http://localhost:8080/lights/rgb \
   -H "Authorization: Bearer your-token" \
   -H "Content-Type: application/json" \
   -d '{"r": 255, "g": 128, "b": 0}'
+
+# Set color temperature (warm white)
+curl -X POST http://localhost:8080/lights/colortemp \
+  -H "Authorization: Bearer your-token" \
+  -H "Content-Type: application/json" \
+  -d '{"temperature": 3000}'
 
 # Set brightness to 50
 curl -X POST http://localhost:8080/lights/brightness \

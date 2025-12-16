@@ -268,6 +268,86 @@ func TestRGBInvalidJSON(t *testing.T) {
 	}
 }
 
+func TestColorTemp(t *testing.T) {
+	mockController := &MockController{}
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
+	handler := &LightsHandler{
+		Controller: mockController,
+		Logger:     logger,
+	}
+
+	body := map[string]int{"temperature": 3000}
+	bodyBytes, _ := json.Marshal(body)
+	req := httptest.NewRequest("POST", "/lights/colortemp", bytes.NewReader(bodyBytes))
+	w := httptest.NewRecorder()
+
+	handler.ColorTemp(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+
+	var response map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if response["status"] != "color temperature set" {
+		t.Errorf("expected status 'color temperature set', got %s", response["status"])
+	}
+}
+
+func TestColorTempInvalidValues(t *testing.T) {
+	mockController := &MockController{}
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
+	handler := &LightsHandler{
+		Controller: mockController,
+		Logger:     logger,
+	}
+
+	tests := []struct {
+		name string
+		temp int
+	}{
+		{"too low", 1500},
+		{"too high", 10000},
+		{"negative", -1000},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := map[string]int{"temperature": tt.temp}
+			bodyBytes, _ := json.Marshal(body)
+			req := httptest.NewRequest("POST", "/lights/colortemp", bytes.NewReader(bodyBytes))
+			w := httptest.NewRecorder()
+
+			handler.ColorTemp(w, req)
+
+			if w.Code != http.StatusBadRequest {
+				t.Errorf("expected status 400, got %d", w.Code)
+			}
+		})
+	}
+}
+
+func TestColorTempInvalidJSON(t *testing.T) {
+	mockController := &MockController{}
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
+	handler := &LightsHandler{
+		Controller: mockController,
+		Logger:     logger,
+	}
+
+	req := httptest.NewRequest("POST", "/lights/colortemp", bytes.NewReader([]byte("invalid json")))
+	w := httptest.NewRecorder()
+
+	handler.ColorTemp(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", w.Code)
+	}
+}
+
 func TestHealth(t *testing.T) {
 	mockController := &MockController{}
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
