@@ -22,7 +22,7 @@ func (m *MockController) Devices() []*govee.Device {
 
 func TestTurnOn(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,
@@ -49,7 +49,7 @@ func TestTurnOn(t *testing.T) {
 
 func TestTurnOff(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,
@@ -76,7 +76,7 @@ func TestTurnOff(t *testing.T) {
 
 func TestRed(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,
@@ -103,7 +103,7 @@ func TestRed(t *testing.T) {
 
 func TestDarkRed(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,
@@ -130,7 +130,7 @@ func TestDarkRed(t *testing.T) {
 
 func TestBrightness(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,
@@ -159,7 +159,7 @@ func TestBrightness(t *testing.T) {
 
 func TestStatus(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,
@@ -187,7 +187,7 @@ func TestStatus(t *testing.T) {
 
 func TestRGB(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,
@@ -216,7 +216,7 @@ func TestRGB(t *testing.T) {
 
 func TestRGBInvalidValues(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,
@@ -251,7 +251,7 @@ func TestRGBInvalidValues(t *testing.T) {
 
 func TestRGBInvalidJSON(t *testing.T) {
 	mockController := &MockController{}
-	logger := slog.New(slog.NewTextHandler(nil, &slog.HandlerOptions{}))
+	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, &slog.HandlerOptions{}))
 	handler := &LightsHandler{
 		Controller: mockController,
 		Logger:     logger,

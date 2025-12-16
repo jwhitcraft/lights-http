@@ -20,6 +20,12 @@ help: ## Show this help message
 build: ## Build the Go binary
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p bin
+	@go build -o $(BINARY_PATH) .
+
+# Build the binary for Linux
+build-linux: ## Build the Go binary for Linux
+	@echo "Building $(BINARY_NAME) for Linux..."
+	@mkdir -p bin
 	@CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o $(BINARY_PATH) .
 
 # Run tests

@@ -15,7 +15,9 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -32,6 +34,14 @@ type LightsHandler struct {
 	Logger     *slog.Logger
 }
 
+// getRequestID safely extracts request ID from context
+func getRequestID(ctx context.Context) string {
+	if reqID, ok := ctx.Value("requestID").(string); ok {
+		return reqID
+	}
+	return "unknown"
+}
+
 func (h *LightsHandler) forEachDevice(fn func(device *govee.Device)) {
 	for _, device := range h.Controller.Devices() {
 		fn(device)
@@ -39,10 +49,16 @@ func (h *LightsHandler) forEachDevice(fn func(device *govee.Device)) {
 }
 
 func (h *LightsHandler) TurnOn(w http.ResponseWriter, r *http.Request) {
+	requestID := getRequestID(r.Context())
+	h.Logger.Info("Turning on lights", "requestID", requestID)
+
 	h.forEachDevice(func(device *govee.Device) {
 		err := device.TurnOn()
 		if err != nil {
-			h.Logger.Error("Failed to turn on device", "device", device.DeviceID(), "error", err)
+			h.Logger.Error("Failed to turn on device",
+				"device", device.DeviceID(),
+				"requestID", requestID,
+				"error", err)
 		}
 	})
 	w.WriteHeader(http.StatusOK)
@@ -50,10 +66,16 @@ func (h *LightsHandler) TurnOn(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *LightsHandler) TurnOff(w http.ResponseWriter, r *http.Request) {
+	requestID := getRequestID(r.Context())
+	h.Logger.Info("Turning off lights", "requestID", requestID)
+
 	h.forEachDevice(func(device *govee.Device) {
 		err := device.TurnOff()
 		if err != nil {
-			h.Logger.Error("Failed to turn off device", "device", device.DeviceID(), "error", err)
+			h.Logger.Error("Failed to turn off device",
+				"device", device.DeviceID(),
+				"requestID", requestID,
+				"error", err)
 		}
 	})
 	w.WriteHeader(http.StatusOK)
@@ -88,20 +110,33 @@ func (h *LightsHandler) DarkRed(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *LightsHandler) RGB(w http.ResponseWriter, r *http.Request) {
+	requestID := getRequestID(r.Context())
+	h.Logger.Info("Setting RGB color", "requestID", requestID)
+
 	var req struct {
 		R int `json:"r"`
 		G int `json:"g"`
 		B int `json:"b"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.Logger.Error("Invalid JSON in RGB request",
+			"requestID", requestID,
+			"error", err)
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 	if req.R < 0 || req.R > 255 || req.G < 0 || req.G > 255 || req.B < 0 || req.B > 255 {
+		h.Logger.Warn("Invalid RGB values",
+			"requestID", requestID,
+			"r", req.R, "g", req.G, "b", req.B)
 		http.Error(w, "RGB values must be between 0 and 255", http.StatusBadRequest)
 		return
 	}
 	color := govee.Color{R: uint(req.R), G: uint(req.G), B: uint(req.B)}
+	h.Logger.Info("Setting RGB color",
+		"requestID", requestID,
+		"color", fmt.Sprintf("rgb(%d,%d,%d)", req.R, req.G, req.B))
+
 	h.SetColor(w, r, color, "rgb")
 }
 

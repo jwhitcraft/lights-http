@@ -162,6 +162,43 @@ go test ./...
 - github.com/swrm-io/go-vee (local copy via replace)
 - github.com/joho/godotenv
 
+## Monitoring & Observability
+
+The application includes comprehensive monitoring features:
+
+### Structured Logging
+- **JSON format** for easy parsing by log aggregation tools
+- **Request IDs** for tracing requests across logs
+- **Request/response logging** with timing and metadata
+- **Consistent log levels** (DEBUG, INFO, WARN, ERROR)
+
+Example JSON log output:
+```json
+{
+  "time": "2025-12-15T20:20:25.656008-05:00",
+  "level": "INFO",
+  "source": {
+    "function": "main.main",
+    "file": "/Users/jwhitcraft/Projects/lights-http/main.go",
+    "line": 96
+  },
+  "msg": "Starting server",
+  "addr": "0.0.0.0:8080"
+}
+```
+
+### Request Tracing
+- Unique request IDs generated for each HTTP request
+- Request IDs included in response headers (`X-Request-ID`)
+- All handler logs include request ID for correlation
+- Easy debugging of request flows
+
+### Configuration
+Set the following environment variables for logging:
+
+- `LOG_LEVEL` (DEBUG, INFO, WARN, ERROR - default: INFO)
+- `LOG_FORMAT` (json/text - default: json)
+
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.

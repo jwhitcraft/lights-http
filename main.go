@@ -37,7 +37,10 @@ func (sr *statusRecorder) WriteHeader(code int) {
 }
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level:     slog.LevelDebug,
+		AddSource: true,
+	}))
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -67,16 +70,18 @@ func main() {
 		Logger:     logger,
 	}
 
+	loggingMiddleware := &middleware.LoggingMiddleware{Logger: logger}
+
 	mux := http.NewServeMux()
-	mux.Handle("/lights/on", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.TurnOn)))
-	mux.Handle("/lights/off", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.TurnOff)))
-	mux.Handle("/lights/red", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.Red)))
-	mux.Handle("/lights/yellow", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.Yellow)))
-	mux.Handle("/lights/orange", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.Orange)))
-	mux.Handle("/lights/dark-red", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.DarkRed)))
-	mux.Handle("/lights/rgb", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.RGB)))
-	mux.Handle("/lights/brightness", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.Brightness)))
-	mux.Handle("/lights/status", middleware.AuthMiddleware(cfg.BearerToken)(http.HandlerFunc(lightsHandler.Status)))
+	mux.Handle("/lights/on", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.TurnOn))))
+	mux.Handle("/lights/off", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.TurnOff))))
+	mux.Handle("/lights/red", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Red))))
+	mux.Handle("/lights/yellow", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Yellow))))
+	mux.Handle("/lights/orange", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Orange))))
+	mux.Handle("/lights/dark-red", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.DarkRed))))
+	mux.Handle("/lights/rgb", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.RGB))))
+	mux.Handle("/lights/brightness", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Brightness))))
+	mux.Handle("/lights/status", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Status))))
 
 	// Custom handler to redirect 404 and 401 to xkcd
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
