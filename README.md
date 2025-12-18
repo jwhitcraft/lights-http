@@ -78,6 +78,10 @@ curl -X POST http://localhost:8080/lights/brightness \
 curl -X GET http://localhost:8080/lights/status \
   -H "Authorization: Bearer your-token"
 # Returns: [{"deviceID": "35:CF:DC:6E:00:86:3C:94", "onOff": true, "brightness": 100, "color": {"r": 255, "g": 0, "b": 0}}, ...]
+
+# Get Prometheus metrics (on separate metrics port)
+curl -X GET http://localhost:9090/metrics
+# Returns Prometheus-formatted metrics for monitoring
 ```
 
 ## Configuration
@@ -86,10 +90,24 @@ Set the following environment variables:
 
 - `HOSTNAME` (default: 0.0.0.0)
 - `PORT` (default: 8080)
+- `METRICS_PORT` (default: 9090)
 - `BEARER_TOKEN` (required)
 - `GO_ENV` (set to "production" to skip .env loading)
 
 For development, create a `.env` file with the variables.
+
+## Monitoring
+
+The application exposes Prometheus metrics on a separate port for security:
+
+- **API Server**: `http://localhost:8080` (requires authentication)
+- **Metrics Server**: `http://localhost:9090/metrics` (no authentication required)
+
+Configure Prometheus to scrape metrics from the metrics endpoint. The metrics include:
+- HTTP request counts and latency histograms
+- Light operation success/failure counters
+- Active connection gauges
+- Go runtime metrics
 
 ## Development
 

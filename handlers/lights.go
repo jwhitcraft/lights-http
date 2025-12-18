@@ -21,6 +21,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/jwhitcraft/lights-http/metrics"
 	govee "github.com/swrm-io/go-vee"
 )
 
@@ -32,6 +33,48 @@ type ControllerInterface interface {
 type LightsHandler struct {
 	Controller ControllerInterface
 	Logger     *slog.Logger
+}
+
+// parseAndValidateJSON parses JSON from request body and validates it
+func (h *LightsHandler) parseAndValidateJSON(w http.ResponseWriter, r *http.Request, v interface{}, operationName string) bool {
+	requestID := getRequestID(r.Context())
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		h.Logger.Error(fmt.Sprintf("Invalid JSON in %s request", operationName),
+			"requestID", requestID,
+			"error", err)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return false
+	}
+	return true
+}
+
+// executeLightOperation executes a light operation across all devices with proper error handling and metrics
+func (h *LightsHandler) executeLightOperation(w http.ResponseWriter, r *http.Request, operationName string, successMessage string, operationFunc func(device *govee.Device) error) {
+	requestID := getRequestID(r.Context())
+	h.Logger.Info(fmt.Sprintf("Executing %s operation", operationName), "requestID", requestID)
+
+	success := true
+	h.forEachDevice(func(device *govee.Device) {
+		if err := operationFunc(device); err != nil {
+			h.Logger.Error(fmt.Sprintf("Failed to %s device", operationName),
+				"device", device.DeviceID(),
+				"requestID", requestID,
+				"error", err)
+			success = false
+		}
+	})
+
+	result := "success"
+	if !success {
+		result = "error"
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": fmt.Sprintf("failed to %s some lights", operationName)})
+		return
+	}
+
+	metrics.LightOperationsTotal.WithLabelValues(operationName, result).Inc()
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": successMessage})
 }
 
 // getRequestID safely extracts request ID from context
@@ -49,48 +92,21 @@ func (h *LightsHandler) forEachDevice(fn func(device *govee.Device)) {
 }
 
 func (h *LightsHandler) TurnOn(w http.ResponseWriter, r *http.Request) {
-	requestID := getRequestID(r.Context())
-	h.Logger.Info("Turning on lights", "requestID", requestID)
-
-	h.forEachDevice(func(device *govee.Device) {
-		err := device.TurnOn()
-		if err != nil {
-			h.Logger.Error("Failed to turn on device",
-				"device", device.DeviceID(),
-				"requestID", requestID,
-				"error", err)
-		}
+	h.executeLightOperation(w, r, "turn_on", "lights turned on", func(device *govee.Device) error {
+		return device.TurnOn()
 	})
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "lights turned on"})
 }
 
 func (h *LightsHandler) TurnOff(w http.ResponseWriter, r *http.Request) {
-	requestID := getRequestID(r.Context())
-	h.Logger.Info("Turning off lights", "requestID", requestID)
-
-	h.forEachDevice(func(device *govee.Device) {
-		err := device.TurnOff()
-		if err != nil {
-			h.Logger.Error("Failed to turn off device",
-				"device", device.DeviceID(),
-				"requestID", requestID,
-				"error", err)
-		}
+	h.executeLightOperation(w, r, "turn_off", "lights turned off", func(device *govee.Device) error {
+		return device.TurnOff()
 	})
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "lights turned off"})
 }
 
 func (h *LightsHandler) SetColor(w http.ResponseWriter, r *http.Request, color govee.Color, colorName string) {
-	h.forEachDevice(func(device *govee.Device) {
-		err := device.SetColor(color)
-		if err != nil {
-			h.Logger.Error("Failed to set color", "device", device.DeviceID(), "color", colorName, "error", err)
-		}
+	h.executeLightOperation(w, r, "set_color", "lights set to "+colorName, func(device *govee.Device) error {
+		return device.SetColor(color)
 	})
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "lights set to " + colorName})
 }
 
 func (h *LightsHandler) Red(w http.ResponseWriter, r *http.Request) {
@@ -118,13 +134,10 @@ func (h *LightsHandler) RGB(w http.ResponseWriter, r *http.Request) {
 		G int `json:"g"`
 		B int `json:"b"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.Logger.Error("Invalid JSON in RGB request",
-			"requestID", requestID,
-			"error", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	if !h.parseAndValidateJSON(w, r, &req, "RGB") {
 		return
 	}
+
 	if req.R < 0 || req.R > 255 || req.G < 0 || req.G > 255 || req.B < 0 || req.B > 255 {
 		h.Logger.Warn("Invalid RGB values",
 			"requestID", requestID,
@@ -132,6 +145,7 @@ func (h *LightsHandler) RGB(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "RGB values must be between 0 and 255", http.StatusBadRequest)
 		return
 	}
+
 	color := govee.Color{R: uint(req.R), G: uint(req.G), B: uint(req.B)}
 	h.Logger.Info("Setting RGB color",
 		"requestID", requestID,
@@ -147,13 +161,10 @@ func (h *LightsHandler) ColorTemp(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Temperature int `json:"temperature"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		h.Logger.Error("Invalid JSON in color temperature request",
-			"requestID", requestID,
-			"error", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	if !h.parseAndValidateJSON(w, r, &req, "color temperature") {
 		return
 	}
+
 	if req.Temperature < 2000 || req.Temperature > 9000 {
 		h.Logger.Warn("Invalid color temperature",
 			"requestID", requestID,
@@ -161,53 +172,50 @@ func (h *LightsHandler) ColorTemp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Color temperature must be between 2000K and 9000K", http.StatusBadRequest)
 		return
 	}
+
 	colorTemp := govee.NewColorKelvin(uint(req.Temperature))
 	h.Logger.Info("Setting color temperature",
 		"requestID", requestID,
 		"temperature", fmt.Sprintf("%dK", req.Temperature))
 
-	h.forEachDevice(func(device *govee.Device) {
-		err := device.SetColorKelvin(colorTemp)
-		if err != nil {
-			h.Logger.Error("Failed to set color temperature",
-				"device", device.DeviceID(),
-				"requestID", requestID,
-				"temperature", req.Temperature,
-				"error", err)
-		}
+	h.executeLightOperation(w, r, "set_color_temp", "color temperature set", func(device *govee.Device) error {
+		return device.SetColorKelvin(colorTemp)
 	})
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "color temperature set"})
 }
 
 func (h *LightsHandler) Brightness(w http.ResponseWriter, r *http.Request) {
+	requestID := getRequestID(r.Context())
+	h.Logger.Info("Setting brightness", "requestID", requestID)
+
 	var req struct {
 		Brightness int `json:"brightness"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+	if !h.parseAndValidateJSON(w, r, &req, "brightness") {
 		return
 	}
+
 	if req.Brightness < 0 || req.Brightness > 100 {
+		h.Logger.Warn("Invalid brightness value",
+			"requestID", requestID,
+			"brightness", req.Brightness)
 		http.Error(w, "Brightness must be between 0 and 100", http.StatusBadRequest)
 		return
 	}
-	h.forEachDevice(func(device *govee.Device) {
-		err := device.SetBrightness(govee.Brightness(req.Brightness))
-		if err != nil {
-			h.Logger.Error("Failed to set brightness", "device", device.DeviceID(), "brightness", req.Brightness, "error", err)
-		}
+
+	h.executeLightOperation(w, r, "set_brightness", "brightness set", func(device *govee.Device) error {
+		return device.SetBrightness(govee.Brightness(req.Brightness))
 	})
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "brightness set"})
 }
 
 func (h *LightsHandler) Status(w http.ResponseWriter, r *http.Request) {
+	requestID := getRequestID(r.Context())
+	h.Logger.Info("Getting lights status", "requestID", requestID)
+
 	var statuses []map[string]interface{}
 	for _, device := range h.Controller.Devices() {
 		err := device.RequestStatus()
 		if err != nil {
-			h.Logger.Error("Failed to request status", "device", device.DeviceID(), "error", err)
+			h.Logger.Error("Failed to request status", "device", device.DeviceID(), "requestID", requestID, "error", err)
 			continue
 		}
 		color := device.Color()

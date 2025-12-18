@@ -25,6 +25,7 @@ import (
 	"github.com/jwhitcraft/lights-http/controller"
 	"github.com/jwhitcraft/lights-http/handlers"
 	"github.com/jwhitcraft/lights-http/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type statusRecorder struct {
@@ -39,7 +40,7 @@ func (sr *statusRecorder) WriteHeader(code int) {
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level:     slog.LevelDebug,
+		Level:     slog.LevelInfo,
 		AddSource: true,
 	}))
 
@@ -78,35 +79,52 @@ func main() {
 	}
 
 	loggingMiddleware := &middleware.LoggingMiddleware{Logger: logger}
+	metricsMiddleware := &middleware.MetricsMiddleware{}
 
-	mux := http.NewServeMux()
-	mux.Handle("/health", loggingMiddleware.Middleware(http.HandlerFunc(healthHandler.Health)))
-	mux.Handle("/ready", loggingMiddleware.Middleware(http.HandlerFunc(healthHandler.Health)))
-	mux.Handle("/live", loggingMiddleware.Middleware(http.HandlerFunc(healthHandler.Health)))
-	mux.Handle("/lights/on", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.TurnOn))))
-	mux.Handle("/lights/off", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.TurnOff))))
-	mux.Handle("/lights/red", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Red))))
-	mux.Handle("/lights/yellow", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Yellow))))
-	mux.Handle("/lights/orange", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Orange))))
-	mux.Handle("/lights/dark-red", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.DarkRed))))
-	mux.Handle("/lights/rgb", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.RGB))))
-	mux.Handle("/lights/colortemp", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.ColorTemp))))
-	mux.Handle("/lights/brightness", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Brightness))))
-	mux.Handle("/lights/status", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(http.HandlerFunc(lightsHandler.Status))))
+	// API server mux (with auth and metrics middleware)
+	apiMux := http.NewServeMux()
+	apiMux.Handle("/health", loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(healthHandler.Health))))
+	apiMux.Handle("/ready", loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(healthHandler.Health))))
+	apiMux.Handle("/live", loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(healthHandler.Health))))
+	apiMux.Handle("/lights/on", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.TurnOn)))))
+	apiMux.Handle("/lights/off", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.TurnOff)))))
+	apiMux.Handle("/lights/red", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.Red)))))
+	apiMux.Handle("/lights/yellow", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.Yellow)))))
+	apiMux.Handle("/lights/orange", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.Orange)))))
+	apiMux.Handle("/lights/dark-red", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.DarkRed)))))
+	apiMux.Handle("/lights/rgb", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.RGB)))))
+	apiMux.Handle("/lights/colortemp", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.ColorTemp)))))
+	apiMux.Handle("/lights/brightness", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.Brightness)))))
+	apiMux.Handle("/lights/status", middleware.AuthMiddleware(cfg.BearerToken)(loggingMiddleware.Middleware(metricsMiddleware.Middleware(http.HandlerFunc(lightsHandler.Status)))))
+
+	// Metrics server mux (no auth, separate port)
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
 
 	// Custom handler to redirect 404 and 401 to xkcd
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		srw := &statusRecorder{ResponseWriter: w, status: 200}
-		mux.ServeHTTP(srw, r)
+		apiMux.ServeHTTP(srw, r)
 		if srw.status == 404 || srw.status == 401 {
 			http.Redirect(w, r, "https://xkcd.com/random/", http.StatusFound)
 		}
 	})
 
-	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
-	logger.Info("Starting server", "addr", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
-		logger.Error("Server failed", "error", err)
+	// Start metrics server in background
+	metricsAddr := fmt.Sprintf("%s:%s", cfg.Host, cfg.MetricsPort)
+	go func() {
+		logger.Info("Starting metrics server", "addr", metricsAddr)
+		if err := http.ListenAndServe(metricsAddr, metricsMux); err != nil {
+			logger.Error("Metrics server failed", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	// Start main API server
+	apiAddr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
+	logger.Info("Starting API server", "addr", apiAddr, "metrics_addr", metricsAddr)
+	if err := http.ListenAndServe(apiAddr, apiHandler); err != nil {
+		logger.Error("API server failed", "error", err)
 		os.Exit(1)
 	}
 }

@@ -25,6 +25,7 @@ import (
 type Config struct {
 	Host        string
 	Port        string
+	MetricsPort string
 	BearerToken string
 }
 
@@ -42,14 +43,19 @@ func Load() (*Config, error) {
 	if port == "" {
 		port = "8080"
 	}
+	metricsPort := os.Getenv("METRICS_PORT")
+	if metricsPort == "" {
+		metricsPort = "9090"
+	}
 	token := os.Getenv("BEARER_TOKEN")
 	if token == "" {
-		return nil, fmt.Errorf("BEARER_TOKEN is required. Please set it in your environment or .env file.")
+		return nil, fmt.Errorf("BEARER_TOKEN is required. Please set it in your environment or .env file")
 	}
 
 	return &Config{
 		Host:        host,
 		Port:        port,
+		MetricsPort: metricsPort,
 		BearerToken: token,
 	}, nil
 }
