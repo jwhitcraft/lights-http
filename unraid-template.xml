@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Container version="2">
+  <Name>Lights HTTP</Name>
+  <Repository>docker.io/jwhitcraft/lights-http:v1</Repository>
+  <Registry>https://docker.io</Registry>
+  <Network>host</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/jwhitcraft/lights-http</Support>
+  <Project>https://github.com/jwhitcraft/lights-http</Project>
+  <Overview>
+A production-ready HTTP API server for controlling Govee smart lights with comprehensive monitoring and observability features.
+
+Features:
+- REST API with Bearer token authentication
+- Control lights: on/off, RGB colors, color temperature (2000-9000K), brightness
+- Prometheus metrics endpoint for monitoring
+- Health check endpoints
+- Structured JSON logging
+- Docker containerized
+
+API Server: Port 8080 (requires authentication)
+Metrics Server: Port 9090 (no authentication required)
+  </Overview>
+  <Category>Network:HomeAutomation</Category>
+  <WebUI>http://[IP]:[PORT:8080]/health</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/jwhitcraft/lights-http/main/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/jwhitcraft/lights-http/main/unraid-icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText>If you appreciate this app, please consider supporting the developer</DonateText>
+  <DonateLink>https://github.com/sponsors/jwhitcraft</DonateLink>
+  <Requires/>
+  <Config Name="API Port" Target="8080" Default="8080" Mode="tcp" Description="Port for the main API server (requires authentication)" Type="Port" Display="always" Required="true" Mask="false">8080</Config>
+  <Config Name="Metrics Port" Target="9090" Default="9090" Mode="tcp" Description="Port for Prometheus metrics (no authentication required)" Type="Port" Display="always" Required="true" Mask="false">9090</Config>
+  <Config Name="Bearer Token" Target="BEARER_TOKEN" Default="" Mode="" Description="Bearer token for API authentication (required - generate a secure random string)" Type="Variable" Display="always" Required="true" Mask="true"></Config>
+  <Config Name="Go Environment" Target="GO_ENV" Default="production" Mode="" Description="Environment mode (production skips .env file loading)" Type="Variable" Display="advanced" Required="false" Mask="false">production</Config>
+  <Config Name="Hostname" Target="HOSTNAME" Default="0.0.0.0" Mode="" Description="Host interface to bind to (usually 0.0.0.0)" Type="Variable" Display="advanced" Required="false" Mask="false">0.0.0.0</Config>
+</Container>

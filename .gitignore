@@ -3,3 +3,6 @@
 *.log
 bin/
 vendor/
+
+# Unraid template files (keep SVG source and script, ignore generated PNG)
+# unraid-icon.png.placeholder

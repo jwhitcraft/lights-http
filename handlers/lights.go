@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/jwhitcraft/lights-http/metrics"
 	govee "github.com/swrm-io/go-vee"
@@ -54,7 +55,8 @@ func (h *LightsHandler) executeLightOperation(w http.ResponseWriter, r *http.Req
 	h.Logger.Info(fmt.Sprintf("Executing %s operation", operationName), "requestID", requestID)
 
 	success := true
-	h.forEachDevice(func(device *govee.Device) {
+	devices := h.Controller.Devices()
+	for i, device := range devices {
 		if err := operationFunc(device); err != nil {
 			h.Logger.Error(fmt.Sprintf("Failed to %s device", operationName),
 				"device", device.DeviceID(),
@@ -62,7 +64,12 @@ func (h *LightsHandler) executeLightOperation(w http.ResponseWriter, r *http.Req
 				"error", err)
 			success = false
 		}
-	})
+		// Add a small delay between device operations to prevent channel blocking
+		// This helps avoid "channel blocked or closed" errors when controlling multiple devices
+		if i < len(devices)-1 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
 
 	result := "success"
 	if !success {
@@ -83,12 +90,6 @@ func getRequestID(ctx context.Context) string {
 		return reqID
 	}
 	return "unknown"
-}
-
-func (h *LightsHandler) forEachDevice(fn func(device *govee.Device)) {
-	for _, device := range h.Controller.Devices() {
-		fn(device)
-	}
 }
 
 func (h *LightsHandler) TurnOn(w http.ResponseWriter, r *http.Request) {

@@ -109,6 +109,47 @@ Configure Prometheus to scrape metrics from the metrics endpoint. The metrics in
 - Active connection gauges
 - Go runtime metrics
 
+## Unraid Installation
+
+This application includes an Unraid app template for easy deployment on Unraid servers.
+
+### Installation Steps:
+
+1. **Add the Template:**
+   - In Unraid web UI, go to **Apps** tab
+   - Click **Add Container** or search for "lights-http"
+   - Or manually add template URL: `https://raw.githubusercontent.com/jwhitcraft/lights-http/main/unraid-template.xml`
+
+2. **Configure the Container:**
+   - **Network Type**: Uses **Host** networking for device discovery
+   - **API Port**: Choose a host port for the main API (default: 8080)
+   - **Metrics Port**: Choose a host port for Prometheus metrics (default: 9090)
+   - **Bearer Token**: Generate a secure random string for API authentication
+   - **Go Environment**: Leave as "production"
+   - **Hostname**: Leave as "0.0.0.0"
+
+3. **Start the Container:**
+   - Click **Apply** to create and start the container
+   - Check logs to ensure it starts successfully
+
+4. **Access the Application:**
+   - **API**: `http://your-unraid-ip:8080` (requires Bearer token)
+   - **Metrics**: `http://your-unraid-ip:9090/metrics` (no authentication)
+   - **Health Check**: `http://your-unraid-ip:8080/health`
+
+### Example Unraid Configuration:
+```
+API Port: 8080
+Metrics Port: 9090
+Bearer Token: your-secure-random-token-here
+```
+
+### Important Notes:
+
+- **Host Networking**: The template uses host networking mode to allow the container to discover Govee devices on your local network. This is required for device discovery to work properly.
+- **Port Conflicts**: Ensure the chosen ports (8080, 9090) are not already in use by other services on your Unraid server.
+- **App Icon**: The template references `unraid-icon.png`. Convert the provided `unraid-icon.svg` to PNG format using the included `convert-icon.sh` script or an online converter.
+
 ## Development
 
 This project includes a Makefile with common Go development tasks:
